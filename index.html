@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
-      --primary-color: #2e7d32; /* Green */
+      --primary-color: #2e7d32;
       --secondary-color: #66bb6a;
       --bg-color: #f1f8e9;
       --text-color: #1b5e20;
@@ -25,7 +25,7 @@
     h1 {
       text-align: center;
       color: var(--primary-color);
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
 
     .container {
@@ -95,16 +95,36 @@
     <h1>🟢 GENG PLASTIK IJA (GPI)</h1>
     <h2 style="text-align:center; color:#388e3c;">Plogging Waste Tracker</h2>
 
+    <!-- Form Inputs -->
+    <label for="date">Date of Plogging:</label>
+    <input type="date" id="date" required>
+
+    <label for="location">Location:</label>
+    <input type="text" id="location" placeholder="Enter location" required>
+
+    <label for="district">District:</label>
+    <select id="district" required>
+      <option value="">Select district</option>
+      <option>Besut</option>
+      <option>Setiu</option>
+      <option>Kuala Nerus</option>
+      <option>Kuala Terengganu</option>
+      <option>Marang</option>
+      <option>Dungun</option>
+      <option>Kemaman</option>
+      <option>Hulu Terengganu</option>
+    </select>
+
     <label for="weight">Weight (kg):</label>
-    <input type="number" id="weight" placeholder="Enter weight" min="0" step="0.01">
+    <input type="number" id="weight" placeholder="Enter weight" min="0" step="0.01" required>
 
     <label for="type">Waste Type:</label>
-    <select id="type">
+    <select id="type" required>
       <option value="Plastic">Plastic</option>
       <option value="Mixed">Mixed</option>
     </select>
 
-    <button onclick="addBag()">➕ Add Bag</button>
+    <button onclick="addBag()">📤 Submit Bag</button>
 
     <div class="summary">
       <h3>Summary</h3>
@@ -125,6 +145,9 @@
         <thead>
           <tr>
             <th>No.</th>
+            <th>Date</th>
+            <th>Location</th>
+            <th>District</th>
             <th>Weight (kg)</th>
             <th>Waste Type</th>
           </tr>
@@ -139,33 +162,41 @@
     let bags = [];
 
     function addBag() {
+      const date = document.getElementById("date").value;
+      const location = document.getElementById("location").value.trim();
+      const district = document.getElementById("district").value;
       const weight = parseFloat(document.getElementById("weight").value);
       const type = document.getElementById("type").value;
 
-      if (isNaN(weight) || weight <= 0) {
-        alert("Please enter a valid weight.");
+      if (!date || !location || !district || isNaN(weight) || weight <= 0) {
+        alert("Please fill in all fields correctly.");
         return;
       }
 
-      bags.push({ weight, type });
-      document.getElementById("weight").value = '';
+      const bag = { date, location, district, weight, type };
+      bags.push(bag);
+
+      clearInputsExceptDateAndLocation();
       updateDisplay();
+    }
+
+    function clearInputsExceptDateAndLocation() {
+      document.getElementById("weight").value = '';
+      document.getElementById("type").value = 'Plastic'; // reset to default
     }
 
     function updateDisplay() {
       const tbody = document.getElementById("bag-table-body");
       tbody.innerHTML = '';
-      let total = 0;
-      let plasticTotal = 0, plasticCount = 0;
-      let mixedTotal = 0, mixedCount = 0;
+      let total = 0, plasticTotal = 0, mixedTotal = 0;
+      let plasticCount = 0, mixedCount = 0;
 
       bags.forEach((bag, index) => {
         total += bag.weight;
-
         if (bag.type === "Plastic") {
           plasticTotal += bag.weight;
           plasticCount++;
-        } else if (bag.type === "Mixed") {
+        } else {
           mixedTotal += bag.weight;
           mixedCount++;
         }
@@ -173,19 +204,20 @@
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${index + 1}</td>
+          <td>${bag.date}</td>
+          <td>${bag.location}</td>
+          <td>${bag.district}</td>
           <td>${bag.weight.toFixed(2)}</td>
           <td>${bag.type}</td>
         `;
         tbody.appendChild(row);
       });
 
-      const summaryText = bags.length === 0
+      document.getElementById("summary-text").textContent =
+        bags.length === 0
         ? "No bags added yet."
         : `Total Bags: ${bags.length} | Total Weight: ${total.toFixed(2)} kg`;
 
-      document.getElementById("summary-text").textContent = summaryText;
-
-      // Update type summary
       document.getElementById("type-summary-list").innerHTML = `
         <li>🧴 Plastic: ${plasticCount} bag(s) – ${plasticTotal.toFixed(2)} kg</li>
         <li>♻️ Mixed: ${mixedCount} bag(s) – ${mixedTotal.toFixed(2)} kg</li>
