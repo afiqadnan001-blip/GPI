@@ -22,18 +22,26 @@
       padding: 20px;
     }
 
+    .logo-container {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
     .logo {
-      display: block;
-      margin: 0 auto 15px;
-      max-width: 120px;
+      max-width: 150px;
       height: auto;
       border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      border: 3px solid var(--primary-color);
+      padding: 5px;
+      background: white;
     }
 
     h1 {
       text-align: center;
       color: var(--primary-color);
-      margin-bottom: 10px;
+      margin-bottom: 5px;
+      margin-top: 10px;
     }
 
     .container {
@@ -125,6 +133,9 @@
         padding: 8px;
         font-size: 14px;
       }
+      .logo {
+        max-width: 120px;
+      }
     }
 
     .loading {
@@ -132,15 +143,28 @@
       text-align: center;
       margin: 10px 0;
     }
+
+    .session-controls {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    #new-session-btn {
+      background-color: #FF5722;
+      width: auto;
+      padding: 8px 15px;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <!-- Your Logo -->
-    <img src="logo.jpeg" alt="GPI Logo" class="logo">
-    <h1>GENG PLASTIK IJA (GPI)</h1>
-    <h2 style="text-align:center; color:#388e3c;">Plogging Waste Tracker</h2>
+    <!-- Enhanced Logo Display -->
+    <div class="logo-container">
+      <img src="logo.jpeg" alt="GPI Logo" class="logo">
+      <h1>GENG PLASTIK IJA (GPI)</h1>
+      <h2 style="color:#388e3c;">Plogging Waste Tracker</h2>
+    </div>
 
     <!-- Form Inputs -->
     <label for="date">Date of Plogging:</label>
@@ -177,8 +201,12 @@
     <button id="export-btn" onclick="exportToExcel()">📊 Export to Excel</button>
     <div id="loading" class="loading">Saving data...</div>
 
+    <div class="session-controls">
+      <button id="new-session-btn" onclick="startNewSession()">♻️ Start New Plogging Session</button>
+    </div>
+
     <div class="summary">
-      <h3>Summary</h3>
+      <h3>Session Summary</h3>
       <p id="summary-text">No bags added yet.</p>
     </div>
 
@@ -191,7 +219,7 @@
     </div>
 
     <div class="all-bags">
-      <h3>All Bags</h3>
+      <h3>Current Session Bags</h3>
       <table>
         <thead>
           <tr>
@@ -209,53 +237,33 @@
     </div>
   </div>
 
-  <!-- Add Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-  
   <script>
-    // Your Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyCx4KYyfsvjkQf5DsoG9g9wc0tQ-4KQaBU",
-      authDomain: "ploggingproject.firebaseapp.com",
-      projectId: "ploggingproject",
-      storageBucket: "ploggingproject.firebasestorage.app",
-      messagingSenderId: "821158195741",
-      appId: "1:821158195741:web:3ca7237db00c1af4800cf4"
-    };
-
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    
+    // Session-based data storage
     let bags = [];
+    let currentSession = Date.now(); // Unique session ID
 
-    // Load existing data when page loads
-    window.addEventListener('DOMContentLoaded', (event) => {
-      loadData();
-    });
-
-    async function loadData() {
-      try {
-        const querySnapshot = await db.collection("ploggingData").orderBy("timestamp", "desc").get();
-        bags = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          bags.push({
-            id: doc.id,
-            date: data.date,
-            location: data.location,
-            district: data.district,
-            weight: data.weight,
-            type: data.type
-          });
-        });
-        updateDisplay();
-      } catch (error) {
-        console.error("Error loading data: ", error);
-        alert("Error loading data. Please check console for details.");
-      }
+    // Clear all data when page loads (fresh session)
+    function initSession() {
+      bags = [];
+      updateDisplay();
+      document.getElementById("date").valueAsDate = new Date(); // Set today's date
+      document.getElementById("location").value = "";
     }
+
+    // Start a new session manually
+    function startNewSession() {
+      if (bags.length > 0 && !confirm("Start new session? Current data will be cleared!")) {
+        return;
+      }
+      currentSession = Date.now();
+      initSession();
+      alert("New plogging session started!");
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', (event) => {
+      initSession();
+    });
 
     async function addBag() {
       const date = document.getElementById("date").value;
@@ -269,52 +277,31 @@
         return;
       }
 
-      // Show loading indicator
-      document.getElementById("loading").style.display = "block";
-
-      try {
-        // Add to Firebase
-        await db.collection("ploggingData").add({
-          date,
-          location,
-          district,
-          weight,
-          type,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Reload data from Firebase
-        await loadData();
-        
-        // Clear inputs
-        clearInputsExceptDateAndLocation();
-        
-        // Hide loading indicator
-        document.getElementById("loading").style.display = "none";
-        
-      } catch (error) {
-        console.error("Error adding document: ", error);
-        alert("Error saving data. Please check console for details.");
-        document.getElementById("loading").style.display = "none";
-      }
+      const bag = { 
+        date, 
+        location, 
+        district, 
+        weight, 
+        type,
+        sessionId: currentSession // Tag with current session
+      };
+      
+      bags.push(bag);
+      clearInputsExceptDateAndLocation();
+      updateDisplay();
     }
 
     async function exportToExcel() {
+      if (bags.length === 0) {
+        alert("No data to export!");
+        return;
+      }
+
       try {
-        // Show loading indicator
         document.getElementById("loading").style.display = "block";
         document.getElementById("loading").textContent = "Preparing export...";
         
-        // Get all data from Firebase
-        const querySnapshot = await db.collection("ploggingData").orderBy("timestamp", "desc").get();
-        const data = [];
-        
-        querySnapshot.forEach((doc) => {
-          const row = doc.data();
-          data.push(row);
-        });
-
-        // Convert to Excel format with enhanced styling
+        // Convert to Excel format
         let excelHtml = `
           <html xmlns:o="urn:schemas-microsoft-com:office:office" 
                 xmlns:x="urn:schemas-microsoft-com:office:excel">
@@ -344,6 +331,7 @@
             </style>
           </head>
           <body>
+          <h2>GENG PLASTIK IJA - Plogging Data (Session: ${new Date(currentSession).toLocaleString()})</h2>
           <table>
             <tr>
               <th>No.</th>
@@ -354,15 +342,15 @@
               <th>Waste Type</th>
             </tr>`;
 
-        data.forEach((row, index) => {
+        bags.forEach((bag, index) => {
           excelHtml += `
             <tr>
               <td>${index + 1}</td>
-              <td>${row.date}</td>
-              <td>${row.location}</td>
-              <td>${row.district}</td>
-              <td>${row.weight.toFixed(2)}</td>
-              <td>${row.type}</td>
+              <td>${bag.date}</td>
+              <td>${bag.location}</td>
+              <td>${bag.district}</td>
+              <td>${bag.weight.toFixed(2)}</td>
+              <td>${bag.type}</td>
             </tr>`;
         });
 
@@ -373,10 +361,9 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `GPI_Plogging_Data_${new Date().toISOString().split('T')[0]}.xls`;
+        a.download = `GPI_Plogging_Session_${currentSession}.xls`;
         a.click();
         
-        // Hide loading indicator
         document.getElementById("loading").style.display = "none";
         document.getElementById("loading").textContent = "Saving data...";
         
@@ -384,7 +371,6 @@
         console.error("Export failed:", error);
         alert("Export failed. Check console for details.");
         document.getElementById("loading").style.display = "none";
-        document.getElementById("loading").textContent = "Saving data...";
       }
     }
 
