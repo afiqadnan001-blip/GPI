@@ -22,6 +22,14 @@
       padding: 20px;
     }
 
+    .logo {
+      display: block;
+      margin: 0 auto 15px;
+      max-width: 120px;
+      height: auto;
+      border-radius: 8px;
+    }
+
     h1 {
       text-align: center;
       color: var(--primary-color);
@@ -49,6 +57,7 @@
       margin-top: 5px;
       border-radius: 6px;
       border: 1px solid #ccc;
+      font-size: 16px;
     }
 
     button {
@@ -61,6 +70,16 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    #export-btn {
+      background-color: #1976D2;
+      margin-top: 10px;
+    }
+
+    #export-btn:hover {
+      background-color: #1565C0;
     }
 
     button:hover {
@@ -75,6 +94,7 @@
       width: 100%;
       border-collapse: collapse;
       background-color: #e8f5e9;
+      margin-top: 15px;
     }
 
     th, td {
@@ -87,12 +107,39 @@
       background-color: var(--primary-color);
       color: white;
     }
+
+    #type-summary-list {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    #type-summary-list li {
+      padding: 5px 0;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 15px;
+      }
+      th, td {
+        padding: 8px;
+        font-size: 14px;
+      }
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <h1>🟢 GENG PLASTIK IJA (GPI)</h1>
+    <!-- Your Logo -->
+    <img src="logo.jpeg" alt="GPI Logo" class="logo">
+    <h1>GENG PLASTIK IJA (GPI)</h1>
     <h2 style="text-align:center; color:#388e3c;">Plogging Waste Tracker</h2>
 
     <!-- Form Inputs -->
@@ -115,16 +162,20 @@
       <option>Hulu Terengganu</option>
     </select>
 
-    <label for="weight">Weight (kg):</label>
-    <input type="number" id="weight" placeholder="Enter weight" min="0" step="0.01" required>
-
+    <!-- Waste Type First -->
     <label for="type">Waste Type:</label>
     <select id="type" required>
       <option value="Plastic">Plastic</option>
       <option value="Mixed">Mixed</option>
     </select>
 
+    <!-- Weight After -->
+    <label for="weight">Weight (kg):</label>
+    <input type="number" id="weight" placeholder="Enter weight" min="0" step="0.01" required>
+
     <button onclick="addBag()">📤 Submit Bag</button>
+    <button id="export-btn" onclick="exportToExcel()">📊 Export to Excel</button>
+    <div id="loading" class="loading">Saving data...</div>
 
     <div class="summary">
       <h3>Summary</h3>
@@ -132,10 +183,10 @@
     </div>
 
     <div class="type-summary">
-      <h4>🧾 Summary by Waste Type</h4>
+      <h4>Summary by Waste Type</h4>
       <ul id="type-summary-list">
-        <li>🧴 Plastic: 0 bags – 0.00 kg</li>
-        <li>♻️ Mixed: 0 bags – 0.00 kg</li>
+        <li>Plastic: 0 bags – 0.00 kg</li>
+        <li>Mixed: 0 bags – 0.00 kg</li>
       </ul>
     </div>
 
@@ -158,10 +209,55 @@
     </div>
   </div>
 
+  <!-- Add Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  
   <script>
+    // Your Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCx4KYyfsvjkQf5DsoG9g9wc0tQ-4KQaBU",
+      authDomain: "ploggingproject.firebaseapp.com",
+      projectId: "ploggingproject",
+      storageBucket: "ploggingproject.firebasestorage.app",
+      messagingSenderId: "821158195741",
+      appId: "1:821158195741:web:3ca7237db00c1af4800cf4"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    
     let bags = [];
 
-    function addBag() {
+    // Load existing data when page loads
+    window.addEventListener('DOMContentLoaded', (event) => {
+      loadData();
+    });
+
+    async function loadData() {
+      try {
+        const querySnapshot = await db.collection("ploggingData").orderBy("timestamp", "desc").get();
+        bags = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          bags.push({
+            id: doc.id,
+            date: data.date,
+            location: data.location,
+            district: data.district,
+            weight: data.weight,
+            type: data.type
+          });
+        });
+        updateDisplay();
+      } catch (error) {
+        console.error("Error loading data: ", error);
+        alert("Error loading data. Please check console for details.");
+      }
+    }
+
+    async function addBag() {
       const date = document.getElementById("date").value;
       const location = document.getElementById("location").value.trim();
       const district = document.getElementById("district").value;
@@ -173,16 +269,128 @@
         return;
       }
 
-      const bag = { date, location, district, weight, type };
-      bags.push(bag);
+      // Show loading indicator
+      document.getElementById("loading").style.display = "block";
 
-      clearInputsExceptDateAndLocation();
-      updateDisplay();
+      try {
+        // Add to Firebase
+        await db.collection("ploggingData").add({
+          date,
+          location,
+          district,
+          weight,
+          type,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Reload data from Firebase
+        await loadData();
+        
+        // Clear inputs
+        clearInputsExceptDateAndLocation();
+        
+        // Hide loading indicator
+        document.getElementById("loading").style.display = "none";
+        
+      } catch (error) {
+        console.error("Error adding document: ", error);
+        alert("Error saving data. Please check console for details.");
+        document.getElementById("loading").style.display = "none";
+      }
+    }
+
+    async function exportToExcel() {
+      try {
+        // Show loading indicator
+        document.getElementById("loading").style.display = "block";
+        document.getElementById("loading").textContent = "Preparing export...";
+        
+        // Get all data from Firebase
+        const querySnapshot = await db.collection("ploggingData").orderBy("timestamp", "desc").get();
+        const data = [];
+        
+        querySnapshot.forEach((doc) => {
+          const row = doc.data();
+          data.push(row);
+        });
+
+        // Convert to Excel format with enhanced styling
+        let excelHtml = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+                xmlns:x="urn:schemas-microsoft-com:office:excel">
+          <head>
+            <meta charset="UTF-8">
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th {
+                background-color: #2e7d32;
+                color: white;
+                font-weight: bold;
+                padding: 8px;
+                text-align: center;
+                border: 1px solid #1b5e20;
+              }
+              td {
+                padding: 6px;
+                text-align: center;
+                border: 1px solid #c8e6c9;
+              }
+              tr:nth-child(even) {
+                background-color: #f1f8e9;
+              }
+            </style>
+          </head>
+          <body>
+          <table>
+            <tr>
+              <th>No.</th>
+              <th>Date</th>
+              <th>Location</th>
+              <th>District</th>
+              <th>Weight (kg)</th>
+              <th>Waste Type</th>
+            </tr>`;
+
+        data.forEach((row, index) => {
+          excelHtml += `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${row.date}</td>
+              <td>${row.location}</td>
+              <td>${row.district}</td>
+              <td>${row.weight.toFixed(2)}</td>
+              <td>${row.type}</td>
+            </tr>`;
+        });
+
+        excelHtml += `</table></body></html>`;
+
+        // Create download link
+        const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `GPI_Plogging_Data_${new Date().toISOString().split('T')[0]}.xls`;
+        a.click();
+        
+        // Hide loading indicator
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("loading").textContent = "Saving data...";
+        
+      } catch (error) {
+        console.error("Export failed:", error);
+        alert("Export failed. Check console for details.");
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("loading").textContent = "Saving data...";
+      }
     }
 
     function clearInputsExceptDateAndLocation() {
       document.getElementById("weight").value = '';
-      document.getElementById("type").value = 'Plastic'; // reset to default
+      document.getElementById("type").value = 'Plastic';
     }
 
     function updateDisplay() {
@@ -219,11 +427,10 @@
         : `Total Bags: ${bags.length} | Total Weight: ${total.toFixed(2)} kg`;
 
       document.getElementById("type-summary-list").innerHTML = `
-        <li>🧴 Plastic: ${plasticCount} bag(s) – ${plasticTotal.toFixed(2)} kg</li>
-        <li>♻️ Mixed: ${mixedCount} bag(s) – ${mixedTotal.toFixed(2)} kg</li>
+        <li>Plastic: ${plasticCount} bag(s) – ${plasticTotal.toFixed(2)} kg</li>
+        <li>Mixed: ${mixedCount} bag(s) – ${mixedTotal.toFixed(2)} kg</li>
       `;
     }
   </script>
-
 </body>
 </html>
