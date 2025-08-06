@@ -67,7 +67,7 @@
       background-color: var(--secondary-color);
     }
 
-    .summary, table {
+    .summary, .type-summary, table {
       margin-top: 30px;
     }
 
@@ -111,6 +111,14 @@
       <p id="summary-text">No bags added yet.</p>
     </div>
 
+    <div class="type-summary">
+      <h4>🧾 Summary by Waste Type</h4>
+      <ul id="type-summary-list">
+        <li>🧴 Plastic: 0 bags – 0.00 kg</li>
+        <li>♻️ Mixed: 0 bags – 0.00 kg</li>
+      </ul>
+    </div>
+
     <div class="all-bags">
       <h3>All Bags</h3>
       <table>
@@ -148,9 +156,20 @@
       const tbody = document.getElementById("bag-table-body");
       tbody.innerHTML = '';
       let total = 0;
+      let plasticTotal = 0, plasticCount = 0;
+      let mixedTotal = 0, mixedCount = 0;
 
       bags.forEach((bag, index) => {
         total += bag.weight;
+
+        if (bag.type === "Plastic") {
+          plasticTotal += bag.weight;
+          plasticCount++;
+        } else if (bag.type === "Mixed") {
+          mixedTotal += bag.weight;
+          mixedCount++;
+        }
+
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${index + 1}</td>
@@ -165,6 +184,12 @@
         : `Total Bags: ${bags.length} | Total Weight: ${total.toFixed(2)} kg`;
 
       document.getElementById("summary-text").textContent = summaryText;
+
+      // Update type summary
+      document.getElementById("type-summary-list").innerHTML = `
+        <li>🧴 Plastic: ${plasticCount} bag(s) – ${plasticTotal.toFixed(2)} kg</li>
+        <li>♻️ Mixed: ${mixedCount} bag(s) – ${mixedTotal.toFixed(2)} kg</li>
+      `;
     }
   </script>
 
